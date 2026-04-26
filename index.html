@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Social Hub — Demo</title>
+
+        <!-- Tailwind Play CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- React / ReactDOM UMD -->
+        <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+        <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+        <!-- Framer Motion UMD -->
+        <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+
+        <!-- Canvas Confetti UMD -->
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+
+        <!-- Babel (for in-browser JSX transpile) -->
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+        <style>
+            html,body,#root { height: 100%; }
+            body { background: #000; }
+        </style>
+    </head>
+    <body>
+        <div id="root" class="min-h-screen"></div>
+
+        <script type="text/babel">
+            const { useState, useEffect, useRef } = React;
+            const { motion, AnimatePresence } = window['framerMotion'];
+            const confetti = window.confetti;
+
+            // Simple icon components (SVG)
+            const Sun = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="12" r="3.5" />
+                    <path d="M12 2v1.5M12 20.5V22M4.2 4.2l1.05 1.05M18.75 18.75l1.05 1.05M2 12h1.5M20.5 12H22M4.2 19.8l1.05-1.05M18.75 5.25l1.05-1.05" />
+                </svg>
+            );
+            const Moon = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                </svg>
+            );
+            const Music = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path d="M9 17V7l10-2v10" />
+                    <path d="M19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            );
+            const Video = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="2" y="5" width="15" height="14" rx="2" />
+                    <path d="M23 7l-6 4v2l6 4z" />
+                </svg>
+            );
+            const Store = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 9l1-2h16l1 2" />
+                    <path d="M5 9v8a2 2 0 002 2h10a2 2 0 002-2V9" />
+                    <path d="M8 13h.01M12 13h.01M16 13h.01" />
+                </svg>
+            );
+            const X = (props) => (
+                <svg viewBox="0 0 24 24" {...props} fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+            );
+
+            // Simple UI primitives
+            const Card = ({ children, className = "" }) => <div className={"rounded-2xl " + className}>{children}</div>;
+            const CardContent = ({ children, className = "" }) => <div className={"p-5 " + className}>{children}</div>;
+            const Button = ({ children, variant, size, onClick, className = "" }) => {
+                const base = "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg";
+                const v =
+                    variant === "ghost"
+                        ? "bg-transparent"
+                        : variant === "outline"
+                        ? "bg-transparent border border-orange-400"
+                        : "bg-gradient-to-r from-orange-400 to-yellow-500 text-black";
+                return (
+                    <button onClick={onClick} className={base + " " + v + " " + className}>
+                        {children}
+                    </button>
+                );
+            };
+
+            const initialRequests = [
+                { id: 1, name: "Aarav Patel", mutuals: 12 },
+                { id: 2, name: "Neha Sharma", mutuals: 8 },
+                { id: 3, name: "Rohan Iyer", mutuals: 5 },
+            ];
+
+            const apps = [
+                {
+                    id: "music",
+                    name: "Music",
+                    icon: Music,
+                    color: "from-orange-400 to-orange-600",
+                    children: [
+                        { name: "Spotify", url: "https://open.spotify.com", logo: "🎧" },
+                        { name: "JioSaavn", url: "https://www.jiosaavn.com", logo: "🎶" },
+                    ],
+                },
+                {
+                    id: "videos",
+                    name: "Camera",
+                    icon: Video,
+                    color: "from-orange-500 to-red-600",
+                    camera: true,
+                },
+                {
+                    id: "store",
+                    name: "Streaming",
+                    icon: Store,
+                    color: "from-orange-400 to-yellow-500",
+                    children: [
+                        { name: "Netflix", url: "https://www.netflix.com", logo: "🎬" },
+                        { name: "Prime Video", url: "https://www.primevideo.com", logo: "📺" },
+                        { name: "Aha", url: "https://www.aha.video", logo: "🍿" },
+                    ],
+                },
+            ];
+
+            function SocialHub() {
+                const [requests, setRequests] = useState(initialRequests);
+                const [darkMode, setDarkMode] = useState(true);
+                const [activeApp, setActiveApp] = useState(null);
+                const videoRef = useRef(null);
+
+                const acceptRequest = (id) => {
+                    confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                    setRequests((prev) => prev.filter((r) => r.id !== id));
+                };
+
+                useEffect(() => {
+                    document.documentElement.classList.toggle("dark", darkMode);
+                }, [darkMode]);
+
+                useEffect(() => {
+                    if (activeApp?.camera && videoRef.current) {
+                        navigator.mediaDevices
+                            ?.getUserMedia({ video: true })
+                            .then((stream) => {
+                                videoRef.current.srcObject = stream;
+                            })
+                            .catch(() => {});
+                    }
+                    return () => {
+                        if (videoRef.current?.srcObject) {
+                            const s = videoRef.current.srcObject;
+                            const tracks = s.getTracks ? s.getTracks() : [];
+                            tracks.forEach((t) => t.stop());
+                        }
+                    };
+                }, [activeApp]);
+
+                return (
+                    <div className="relative min-h-screen p-4 sm:p-6 md:p-8 bg-black overflow-hidden text-orange-300">
+                        <div className="pointer-events-none absolute inset-0">
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,140,0,0.12),transparent_60%)]" />
+                            <motion.div
+                                animate={{ opacity: [0.2, 0.4, 0.2] }}
+                                transition={{ duration: 3, repeat: Infinity }}
+                                className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,165,0,0.18),transparent_55%)]"
+                            />
+                        </div>
+
+                        <div className="relative z-10 flex items-center justify-between mb-6">
+                            <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative text-2xl sm:text-3xl font-bold text-orange-400">
+                                ⚡ Social Hub
+                                <span className="absolute -bottom-2 left-0 h-1 w-24 rounded-full bg-gradient-to-r from-orange-400 to-yellow-500" />
+                            </motion.h1>
+
+                            <Button variant="ghost" onClick={() => setDarkMode(!darkMode)} className="rounded-full text-orange-400">
+                                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                            </Button>
+                        </div>
+
+                        <div className="relative z-10 mb-10">
+                            <div className="grid grid-cols-3 gap-4">
+                                {apps.map((app) => (
+                                    <motion.div
+                                        key={app.id}
+                                        whileHover={{ scale: 1.06 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={() => setActiveApp(app)}
+                                        className={`cursor-pointer rounded-2xl p-5 text-white shadow-xl bg-gradient-to-br ${app.color}`}
+                                    >
+                                        <app.icon className="mb-2 h-7 w-7" />
+                                        <p className="text-xs font-semibold">{app.name}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <AnimatePresence>
+                            {activeApp && (
+                                <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70">
+                                    <motion.div initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 bg-black text-orange-400">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h2 className="text-lg font-semibold">{activeApp.name}</h2>
+                                            <Button variant="ghost" onClick={() => setActiveApp(null)}>
+                                                <X />
+                                            </Button>
+                                        </div>
+
+                                        {activeApp.camera ? (
+                                            <video ref={videoRef} autoPlay playsInline className="w-full rounded-2xl" />
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {activeApp.children.map((child) => (
+                                                    <a
+                                                        key={child.name}
+                                                        href={child.url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="rounded-2xl p-4 text-center font-medium shadow bg-gradient-to-br from-orange-500 to-yellow-500 text-black"
+                                                    >
+                                                        <div className="text-2xl mb-1">{child.logo}</div>
+                                                        {child.name}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="relative z-10 grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                            <AnimatePresence>
+                                {requests.map((req) => (
+                                    <motion.div key={req.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                                        <Card className="rounded-2xl shadow-xl backdrop-blur border-0 bg-black/60 text-orange-300">
+                                            <CardContent className="p-5 flex flex-col gap-4">
+                                                <div>
+                                                    <p className="text-base sm:text-lg font-semibold">{req.name}</p>
+                                                    <p className="text-sm text-orange-200/70">{req.mutuals} mutual friends</p>
+                                                </div>
+
+                                                <div className="flex gap-3">
+                                                    <Button onClick={() => acceptRequest(req.id)} className="flex-1 rounded-xl bg-gradient-to-r from-orange-400 to-yellow-500 text-black">
+                                                        Accept ⚡
+                                                    </Button>
+                                                    <Button variant="outline" className="flex-1 rounded-xl border-orange-400 text-orange-400">
+                                                        Ignore
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+                );
+            }
+
+            const root = ReactDOM.createRoot(document.getElementById("root"));
+            root.render(<SocialHub />);
+        </script>
+    </body>
+</html>
